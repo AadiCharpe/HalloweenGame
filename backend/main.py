@@ -21,11 +21,12 @@ async def connect(websocket):
     return client_id
 
 async def disconnect(websocket):
-    index = clients.indexOf(websocket)
-    clients.remove(websocket)
-    del state.clients_id[websocket]
-    del clients_id.websocket
-    print(f"Client disconnected: {websocket.remote_address}")
+    if websocket in clients:
+        clients.remove(websocket)
+        del clients_id[websocket]
+        del state[clients_id[websocket]]
+        print(f"Client disconnected: {websocket.remote_address}")
+
 
 async def broadcast(message):
     if clients:
@@ -35,12 +36,15 @@ async def handler(websocket, path):
     client_id = await connect(websocket)
     try:
         async for message in websocket:
-            print(message)
             data = json.loads(message)
-            # Update state based on incoming data if needed
-            await broadcast(json.dumps(data))  # Broadcast received data to all clients
+            if "id" in data and "pos" in data:
+                # Update position in the state based on the client ID
+                state[client_id] = data["pos"]
+                print(f"Client {client_id} position: {data['pos']}")
+            await broadcast(json.dumps(state))  # Broadcast the updated state to all clients
     finally:
         await disconnect(websocket)
+
 
 async def main():
     async with websockets.serve(handler, "0.0.0.0", 6789):
